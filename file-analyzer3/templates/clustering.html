@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ method }} Clustering - {{ domain }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dendrogram-container {
+            overflow-x: auto;
+            background: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        .dendrogram-img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            margin: 0 auto;
+        }
+        .cluster-samples {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+        }
+        .metric-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-6">
+    <div class="container mx-auto max-w-6xl">
+        <h1 class="text-3xl font-bold text-center mb-6">{{ method }} Clustering for "{{ domain }}"</h1>
+
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-indigo-600 border-b-2 border-transparent hover:border-indigo-300 active"
+                    data-tab="results">
+                Results
+            </button>
+            <button class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-indigo-600 border-b-2 border-transparent hover:border-indigo-300"
+                    data-tab="samples">
+                Cluster Samples
+            </button>
+        </div>
+
+        <!-- Results Tab -->
+        <div id="results" class="tab-content active">
+            {% if is_hierarchical and plot %}
+            <div class="dendrogram-container">
+                <h2 class="text-xl font-semibold mb-4">Dendrogram (Optimal k={{ cluster_stats.optimal_k }})</h2>
+                <img src="data:image/png;base64,{{ plot }}"
+                     alt="Dendrogram for {{ domain }}"
+                     class="dendrogram-img">
+                <div class="mt-4 bg-blue-50 p-3 rounded">
+                    <h3 class="font-semibold">How to read this dendrogram:</h3>
+                    <ul class="list-disc pl-5 mt-2">
+                        <li>The <strong>vertical axis</strong> shows the distance between merging clusters</li>
+                        <li>The <strong>horizontal axis</strong> shows the individual documents</li>
+                        <li>The <strong>red dashed line</strong> indicates the optimal cutoff point</li>
+                        <li>Each <strong>horizontal line</strong> represents a cluster merge</li>
+                    </ul>
+                </div>
+            </div>
+            {% elif is_hierarchical %}
+            <div class="bg-red-100 text-red-800 p-4 rounded mb-6">
+                Could not generate dendrogram visualization
+            </div>
+            {% endif %}
+
+            <div class="bg-white p-4 rounded shadow-lg mb-8">
+                <h2 class="text-xl font-semibold mb-4">Cluster Metrics</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-4 rounded">
+                        <h3 class="font-medium text-gray-700 mb-2">Cluster Sizes</h3>
+                        <ul>
+                            {% for cluster, count in cluster_stats.sizes.items() %}
+                            <li class="mb-1">
+                                <span class="font-medium">Cluster {{ cluster }}:</span> {{ count }} documents
+                                <div class="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+                                    <div class="bg-indigo-600 h-2.5 rounded-full"
+                                         style="width: {{ (count / cluster_stats.total * 100)|round(1) }}%"></div>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded">
+                        <h3 class="font-medium text-gray-700 mb-2">Quality Metrics</h3>
+                        <ul class="space-y-3">
+                            <li>
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium">Silhouette Score:</span>
+                                    <span class="metric-badge {{ 'bg-green-100 text-green-800' if cluster_stats.silhouette >= 0.7 else 'bg-yellow-100 text-yellow-800' if cluster_stats.silhouette >= 0.5 else 'bg-red-100 text-red-800' }}">
+                                        {{ "%.3f"|format(cluster_stats.silhouette) }}
+                                    </span>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    0.7+ = Strong, 0.5-0.7 = Reasonable, <0.5 = Weak
+                                </div>
+                            </li>
+                            <li>
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium">Calinski-Harabasz:</span>
+                                    <span class="metric-badge bg-blue-100 text-blue-800">
+                                        {{ "%.1f"|format(cluster_stats.calinski_harabasz) }}
+                                    </span>
+                                </div>
+                            </li>
+                            {% if is_hierarchical %}
+                            <li>
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium">Optimal Clusters:</span>
+                                    <span class="metric-badge bg-purple-100 text-purple-800">
+                                        {{ cluster_stats.optimal_k }}
+                                    </span>
+                                </div>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Samples Tab -->
+        <div id="samples" class="tab-content">
+            <div class="bg-white p-4 rounded shadow-lg mb-8">
+                <h2 class="text-xl font-semibold mb-4">Cluster Samples</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {% for cluster, samples in cluster_samples.items() %}
+                    <div class="border rounded-lg overflow-hidden">
+                        <div class="bg-indigo-600 text-white p-3 font-medium">
+                            Cluster {{ cluster }}
+                        </div>
+                        <div class="cluster-samples">
+                            {% for sample in samples %}
+                            <div class="p-3 border-b border-gray-200 last:border-0">
+                                <div class="text-sm">{{ sample }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-between mt-8">
+            <a href="{{ url_for('domain_tfidf', domain=domain) }}"
+               class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg">
+                ← Back to Domain Analysis
+            </a>
+            <div class="space-x-4">
+                <a href="/cluster/{{ domain }}/kmeans"
+                   class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg">
+                    Try K-Means
+                </a>
+                <a href="/cluster/{{ domain }}/hierarchical"
+                   class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg">
+                    Try Hierarchical
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('active', 'border-indigo-600', 'text-indigo-600');
+                    btn.classList.add('text-gray-500');
+                });
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+
+                button.classList.add('active', 'border-indigo-600', 'text-indigo-600');
+                button.classList.remove('text-gray-500');
+                const tabId = button.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

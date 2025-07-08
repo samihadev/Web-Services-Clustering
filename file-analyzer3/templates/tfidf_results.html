@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TF-IDF Results</title>
+</head>
+<body>
+  <h1>TF-IDF for Domain: {{ domain }}</h1>
+  {{ table|safe }}
+  <h2>Clustering:</h2>
+  <form action="/clustering/{{ domain }}/kmeans" method="get">
+    <button type="submit">KMeans</button>
+  </form>
+  <form action="/clustering/{{ domain }}/dbscan" method="get">
+    <button type="submit">DBSCAN</button>
+  </form>
+  <form action="/clustering/{{ domain }}/hierarchical" method="get">
+    <button type="submit">Hierarchical</button>
+  </form>
+</body>
+</html>

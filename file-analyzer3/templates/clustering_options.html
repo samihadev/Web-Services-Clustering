@@ -1,0 +1,17 @@
+<!-- templates/clustering_options.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clustering Options - {{ domain }}</title>
+</head>
+<body>
+    <h1>Select Clustering Method for {{ domain }}</h1>
+    <form method="POST" action="{{ url_for('clustering', domain=domain) }}">
+        <input type="radio" name="clustering_method" value="kmeans" checked> K-Means<br>
+        <input type="radio" name="clustering_method" value="dbscan"> DBSCAN<br>
+        <input type="radio" name="clustering_method" value="hierarchical"> Hierarchical<br>
+        <button type="submit">Run Clustering</button>
+    </form>
+    <a href="{{ url_for('domain_tfidf', domain=domain) }}">Back to Domain Analysis</a>
+</body>
+</html>

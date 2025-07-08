@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TF-IDF Results - {{ domain }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .feature-table {
+            max-height: 600px;
+            overflow-y: auto;
+            display: block;
+        }
+        .feature-cell {
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        thead th {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+        }
+        .processing-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 500;
+            background-color: {% if use_wordnet %}#e6fffa{% else %}#f0f5ff{% endif %};
+            color: {% if use_wordnet %}#065f46{% else %}#4338ca{% endif %};
+        }
+    </style>
+</head>
+<body class="p-8 bg-gray-50">
+<div class="max-w-7xl mx-auto">
+    <h2 class="text-2xl font-bold text-blue-700 mb-6">TF-IDF Analysis for Domain:
+        <span class="text-blue-900">{{ domain }}</span>
+        <span class="processing-badge ml-4">
+            {% if use_wordnet %}
+                Using WordNet
+            {% else %}
+                Raw Features ({{ features|length }} total)
+            {% endif %}
+        </span>
+    </h2>
+
+    <!-- Statistics Section -->
+    <div class="bg-white shadow rounded-lg p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">TF-IDF Statistics</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h4 class="font-medium text-gray-700 mb-2">Document Statistics</h4>
+                <ul class="space-y-1">
+                    <li><span class="font-medium">Total Documents:</span> {{ tfidf|length }}</li>
+                    <li><span class="font-medium">Total Features:</span> {{ features|length }}</li>
+                    <li><span class="font-medium">Threshold Applied:</span> {{ "%.2f"|format(threshold) }}</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-medium text-gray-700 mb-2">Value Statistics</h4>
+                <ul class="space-y-1">
+                    <li><span class="font-medium">Max Value:</span> {{ "%.4f"|format(stats['max_value']) }}</li>
+                    <li><span class="font-medium">Min Value:</span> {{ "%.4f"|format(stats['min_value']) }}</li>
+                    <li><span class="font-medium">Mean Value:</span> {{ "%.4f"|format(stats['mean_value']) }}</li>
+                    <li><span class="font-medium">Non-zero Values:</span> {{ stats['non_zero_count'] }} ({{ "%.2f"|format(stats['non_zero_percentage']) }}%)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Features Section -->
+    <div class="bg-white shadow rounded-lg p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Top 10 Features</h3>
+        <div class="overflow-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feature</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Average TF-IDF Score</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for feature, score in top_features %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ feature }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ "%.4f"|format(score) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Full TF-IDF Matrix Section -->
+    <div class="bg-white shadow rounded-lg p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Complete TF-IDF Matrix ({{ tfidf|length }} documents × {{ features|length }} features)</h3>
+        <div class="feature-table">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
+                        {% for feature in features %}
+                        <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider feature-cell" title="{{ feature }}">{{ feature }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for row in tfidf %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Doc {{ loop.index }}</td>
+                        {% for val in row %}
+                        <td class="px-2 py-4 whitespace-nowrap text-sm text-center {{ 'font-medium text-green-600' if val > 0 else 'text-gray-400' }}">
+                            {{ "%.4f"|format(val) if val > 0 else "0" }}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Clustering Options -->
+    <div class="flex flex-wrap gap-4 justify-center mt-8">
+        <a href="/cluster/{{ domain }}/kmeans" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition duration-300 shadow-md flex items-center">
+            Apply KMeans
+        </a>
+        <a href="/cluster/{{ domain }}/dbscan" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-300 shadow-md flex items-center">
+            Apply DBSCAN
+        </a>
+        <a href="/cluster/{{ domain }}/hierarchical" class="bg-pink-600 text-white px-6 py-3 rounded-lg hover:bg-pink-700 transition duration-300 shadow-md flex items-center">
+            Apply Hierarchical
+        </a>
+    </div>
+</div>
+</body>
+</html>

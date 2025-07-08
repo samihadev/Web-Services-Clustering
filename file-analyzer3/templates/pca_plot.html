@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PCA Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold mb-4 text-center">PCA Visualization - {{ domain }} ({{ method }})</h1>
+        <canvas id="pcaChart" width="800" height="600"></canvas>
+    </div>
+
+    <script>
+        const pcaData = {{ pca|tojson }};
+        const labels = {{ labels|tojson }};
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#8AFF8A', '#FF9F40', '#B366FF', '#00CED1'];
+
+        const ctx = document.getElementById('pcaChart').getContext('2d');
+        const data = {
+            datasets: []
+        };
+
+        const grouped = {};
+        pcaData.forEach((point, idx) => {
+            const label = labels[idx] || 0;
+            if (!grouped[label]) {
+                grouped[label] = [];
+            }
+            grouped[label].push({ x: point[0], y: point[1] });
+        });
+
+        Object.keys(grouped).forEach((label, i) => {
+            data.datasets.push({
+                label: 'Cluster ' + label,
+                data: grouped[label],
+                backgroundColor: colors[i % colors.length]
+            });
+        });
+
+        new Chart(ctx, {
+            type: 'scatter',
+            data: data,
+            options: {
+                scales: {
+                    x: { title: { display: true, text: 'PCA 1' }},
+                    y: { title: { display: true, text: 'PCA 2' }}
+                }
+            }
+        });
+    </script>
+</body>
+</html>

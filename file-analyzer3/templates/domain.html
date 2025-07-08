@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Select Domain</title>
+</head>
+<body>
+    <h2>Select a Domain to View TF-IDF</h2>
+    <ul>
+        {% for domain in domains %}
+            <li><a href="{{ url_for('tfidf_domain', domain=domain) }}">{{ domain }}</a></li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

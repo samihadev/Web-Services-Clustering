@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TF-IDF Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.3/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .highlight {
+            background-color: green;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6">
+
+    <div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-3xl font-bold mb-4 text-center">TF-IDF Analysis for Domain: {{ domain }}</h1>
+
+        <h3 class="text-xl font-semibold mb-4">TF-IDF Statistics</h3>
+        <div>
+            <strong>Total Documents:</strong> {{ texts|length }}<br>
+            <strong>Total Features:</strong> {{ features|length }}<br>
+            <strong>Threshold Applied:</strong> {{ threshold }}<br>
+        </div>
+
+        <h3 class="text-xl font-semibold mt-6 mb-4">Complete TF-IDF Matrix ({{ texts|length }} documents × {{ features|length }} features)</h3>
+        <table class="table-auto w-full text-sm text-left">
+            <thead>
+                <tr>
+                    <th class="px-4 py-2 bg-gray-100">Document</th>
+                    {% for feature in features %}
+                    <th class="px-4 py-2 bg-gray-100">{{ feature }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for i in range(texts|length) %}
+                <tr>
+                    <td class="px-4 py-2">{{ 'Doc ' ~ (i+1) }}</td>
+                    {% for value in tfidf_matrix.iloc[i] %}
+                    <td class="px-4 py-2 {% if value > threshold %}highlight{% endif %}">{{ value|round(4) }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>

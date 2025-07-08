@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ method }} Clustering - {{ domain }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+      .plot-container {
+          max-width: 900px;
+          margin: 0 auto;
+      }
+      .cluster-samples {
+          max-height: 200px;
+          overflow-y: auto;
+          border: 1px solid #e5e7eb;
+          padding: 0.5rem;
+          border-radius: 0.375rem;
+      }
+      .metric-badge {
+          display: inline-block;
+          padding: 0.25rem 0.5rem;
+          border-radius: 0.25rem;
+          font-weight: 500;
+          font-size: 0.875rem;
+      }
+      .tab-content {
+          display: none;
+      }
+      .tab-content.active {
+          display: block;
+      }
+      .progress-bar {
+          transition: width 1.5s ease-out;
+      }
+      .dendrogram-img {
+          animation: dendro-grow 2s ease-out forwards;
+          transform-origin: top center;
+      }
+      @keyframes dendro-grow {
+          0% { transform: scale(0.8); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+      }
+  </style>
+</head>
+<body class="bg-gray-50 p-6">
+  <div class="container mx-auto max-w-6xl">
+      <h1 class="text-3xl font-bold text-center mb-6">{{ method }} Clustering for "{{ domain }}"</h1>
+
+      <!-- Navigation Tabs -->
+      <div class="flex border-b border-gray-200 mb-6">
+          <button class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-indigo-600 border-b-2 border-transparent hover:border-indigo-300 active"
+                  data-tab="results">
+              Results
+          </button>
+          <button class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-indigo-600 border-b-2 border-transparent hover:border-indigo-300"
+                  data-tab="samples">
+              Cluster Samples
+          </button>
+          <button class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-indigo-600 border-b-2 border-transparent hover:border-indigo-300"
+                  data-tab="compare">
+              Compare Algorithms
+          </button>
+      </div>
+
+      <!-- Results Tab -->
+      <div id="results" class="tab-content active">
+          <div class="plot-container bg-white p-4 rounded shadow-lg mb-8">
+              {% if is_hierarchical %}
+                  <h2 class="text-xl font-semibold text-center mb-4">Dendrogram</h2>
+                  <div class="dendrogram-container">
+                      <img src="data:image/png;base64,{{ plot }}"
+                          alt="Dendrogram"
+                          class="mx-auto dendrogram-img">
+                  </div>
+                  {% if elbow_plot %}
+                  <div class="mt-8">
+                      <h2 class="text-xl font-semibold text-center mb-4">Elbow Method Analysis</h2>
+                      <img src="data:image/png;base64,{{ elbow_plot }}"
+                          alt="Elbow Method Plot"
+                          class="mx-auto">
+                      <p class="text-center text-gray-600 mt-2">
+                          Optimal number of clusters: {{ cluster_stats.optimal_clusters }}
+                      </p>
+                  </div>
+                  {% endif %}
+              {% else %}
+                  <h2 class="text-xl font-semibold text-center mb-4">Cluster Distribution</h2>
+                  <div class="w-full h-96">
+                      <canvas id="clusterChart"></canvas>
+                  </div>
+              {% endif %}
+          </div>
+
+          <div class="bg-white p-4 rounded shadow-lg mb-8">
+              <h2 class="text-xl font-semibold mb-4">Cluster Metrics</h2>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="bg-gray-50 p-4 rounded">
+                      <h3 class="font-medium text-gray-700 mb-2">Cluster Sizes</h3>
+                      <ul>
+                          {% for cluster, count in cluster_stats.sizes.items() %}
+                          <li class="mb-1">
+                              <span class="font-medium">Cluster {{ cluster }}:</span> {{ count }} documents
+                              <div class="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+                                  <div class="bg-indigo-600 h-2.5 rounded-full progress-bar"
+                                       style="width: 0%"
+                                       data-width="{{ (count / cluster_stats.total * 100)|round(1) }}"></div>
+                              </div>
+                          </li>
+                          {% endfor %}
+                      </ul>
+                  </div>
+                  <div class="bg-gray-50 p-4 rounded">
+                      <h3 class="font-medium text-gray-700 mb-2">Quality Metrics</h3>
+                      <ul>
+                          <li class="mb-2">
+                              <span class="font-medium">Silhouette Score:</span>
+                              <span class="metric-badge {{ 'bg-green-100 text-green-800' if cluster_stats.silhouette >= 0.7 else 'bg-yellow-100 text-yellow-800' if cluster_stats.silhouette >= 0.5 else 'bg-orange-100 text-orange-800' if cluster_stats.silhouette >= 0.25 else 'bg-red-100 text-red-800' }}">
+                                  {{ "%.3f"|format(cluster_stats.silhouette) }}
+                              </span>
+                              <p class="text-xs text-gray-500 mt-1">
+                                  Measures similarity within clusters (-1 to 1)
+                              </p>
+                          </li>
+                          <li class="mb-2">
+                              <span class="font-medium">Calinski-Harabasz Score:</span>
+                              <span class="metric-badge bg-blue-100 text-blue-800">
+                                  {{ "%.1f"|format(cluster_stats.calinski_harabasz) }}
+                              </span>
+                              <p class="text-xs text-gray-500 mt-1">
+                                  Ratio of between/within cluster dispersion
+                              </p>
+                          </li>
+                          {% if is_hierarchical and cluster_stats.optimal_clusters %}
+                          <li>
+                              <span class="font-medium">Optimal Clusters:</span>
+                              <span class="metric-badge bg-purple-100 text-purple-800">
+                                  {{ cluster_stats.optimal_clusters }}
+                              </span>
+                          </li>
+                          {% endif %}
+                      </ul>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      <!-- Samples Tab -->
+      <div id="samples" class="tab-content">
+          <div class="bg-white p-4 rounded shadow-lg mb-8">
+              <h2 class="text-xl font-semibold mb-4">Cluster Contents</h2>
+              <div class="space-y-6">
+                  {% for cluster, services in cluster_samples.items() %}
+                  <div class="border rounded-lg overflow-hidden">
+                      <div class="bg-indigo-600 text-white p-3 font-medium flex justify-between items-center">
+                          <span>Cluster {{ cluster }} ({{ services|length }} web services)</span>
+                          <span class="text-sm bg-white text-indigo-600 px-2 py-1 rounded">
+                              {{ "%.1f"|format((services|length / cluster_stats.total * 100)) }}% of total
+                          </span>
+                      </div>
+                      <div class="overflow-x-auto">
+                          <table class="min-w-full divide-y divide-gray-200">
+                              <thead class="bg-gray-50">
+                                  <tr>
+                                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Input</th>
+                                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Output</th>
+                                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Domain</th>
+                                  </tr>
+                              </thead>
+                              <tbody class="bg-white divide-y divide-gray-200">
+                                  {% for service in services %}
+                                  <tr class="hover:bg-gray-50">
+                                      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{{ service.input }}</td>
+                                      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{{ service.output }}</td>
+                                      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{{ domain }}</td>
+                                  </tr>
+                                  {% endfor %}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+                  {% endfor %}
+              </div>
+          </div>
+      </div>
+
+      <!-- Compare Tab -->
+      <div id="compare" class="tab-content">
+          <div class="bg-white p-4 rounded shadow-lg mb-8">
+              <h2 class="text-xl font-semibold mb-4">Algorithm Comparison</h2>
+              {% if comparison_plot %}
+              <div class="mb-6">
+                  <div class="w-full h-96">
+                      <canvas id="comparisonChart"></canvas>
+                  </div>
+              </div>
+              {% endif %}
+              <div class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-gray-200">
+                      <thead class="bg-gray-50">
+                          <tr>
+                              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Algorithm</th>
+                              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Silhouette</th>
+                              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calinski-Harabasz</th>
+                              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clusters</th>
+                          </tr>
+                      </thead>
+                      <tbody class="bg-white divide-y divide-gray-200">
+                          {% for alg, data in comparison_results.items() %}
+                          <tr>
+                              <td class="px-6 py-4 whitespace-nowrap font-medium">{{ alg|upper }}</td>
+                              <td class="px-6 py-4 whitespace-nowrap">
+                                  <span class="metric-badge {{ 'bg-green-100 text-green-800' if data.silhouette >= 0.7 else 'bg-yellow-100 text-yellow-800' if data.silhouette >= 0.5 else 'bg-orange-100 text-orange-800' if data.silhouette >= 0.25 else 'bg-red-100 text-red-800' }}">
+                                      {{ "%.3f"|format(data.silhouette) }}
+                                  </span>
+                              </td>
+                              <td class="px-6 py-4 whitespace-nowrap">
+                                  <span class="metric-badge bg-blue-100 text-blue-800">
+                                      {{ "%.1f"|format(data.calinski_harabasz) }}
+                                  </span>
+                              </td>
+                              <td class="px-6 py-4 whitespace-nowrap">{{ data.n_clusters }}</td>
+                          </tr>
+                          {% endfor %}
+                      </tbody>
+                  </table>
+              </div>
+          </div>
+      </div>
+
+      <!-- Navigation Buttons -->
+      <div class="flex justify-between mt-8">
+          <a href="{{ url_for('domain_tfidf', domain=domain) }}"
+             class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+              Back to Domain Analysis
+          </a>
+          <div class="space-x-4">
+              <a href="/cluster/{{ domain }}/kmeans"
+                 class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                  Try K-Means
+              </a>
+              <a href="/cluster/{{ domain }}/dbscan"
+                 class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                  Try DBSCAN
+              </a>
+              <a href="/cluster/{{ domain }}/hierarchical"
+                 class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                  Try Hierarchical
+              </a>
+          </div>
+      </div>
+  </div>
+
+  <script>
+      // Tab switching functionality
+      document.querySelectorAll('.tab-btn').forEach(button => {
+          button.addEventListener('click', () => {
+              // Remove active class from all buttons and content
+              document.querySelectorAll('.tab-btn').forEach(btn => {
+                  btn.classList.remove('active', 'border-indigo-600', 'text-indigo-600');
+                  btn.classList.add('text-gray-500');
+              });
+              document.querySelectorAll('.tab-content').forEach(content => {
+                  content.classList.remove('active');
+              });
+
+              // Add active class to clicked button and corresponding content
+              button.classList.add('active', 'border-indigo-600', 'text-indigo-600');
+              button.classList.remove('text-gray-500');
+              const tabId = button.getAttribute('data-tab');
+              document.getElementById(tabId).classList.add('active');
+          });
+      });
+
+      // Animate progress bars
+      document.querySelectorAll('.progress-bar').forEach(bar => {
+          const targetWidth = bar.getAttribute('data-width');
+          setTimeout(() => {
+              bar.style.width = targetWidth + '%';
+          }, 100);
+      });
+
+      // Create animated chart for cluster distribution
+      document.addEventListener('DOMContentLoaded', function() {
+          {% if not is_hierarchical %}
+              const ctx = document.getElementById('clusterChart').getContext('2d');
+              const clusterChart = new Chart(ctx, {
+                  type: 'bar',
+                  data: {
+                      labels: [{% for cluster in cluster_stats.sizes.keys() %}'Cluster {{ cluster }}'{% if not loop.last %},{% endif %}{% endfor %}],
+                      datasets: [{
+                          label: 'Number of Documents',
+                          data: [{% for count in cluster_stats.sizes.values() %}{{ count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                          backgroundColor: [
+                              'rgba(79, 70, 229, 0.7)',
+                              'rgba(99, 102, 241, 0.7)',
+                              'rgba(129, 140, 248, 0.7)',
+                              'rgba(165, 180, 252, 0.7)',
+                              'rgba(199, 210, 254, 0.7)'
+                          ],
+                          borderColor: [
+                              'rgba(79, 70, 229, 1)',
+                              'rgba(99, 102, 241, 1)',
+                              'rgba(129, 140, 248, 1)',
+                              'rgba(165, 180, 252, 1)',
+                              'rgba(199, 210, 254, 1)'
+                          ],
+                          borderWidth: 1
+                      }]
+                  },
+                  options: {
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      animation: {
+                          duration: 1500,
+                          easing: 'easeOutQuart'
+                      },
+                      scales: {
+                          y: {
+                              beginAtZero: true,
+                              title: {
+                                  display: true,
+                                  text: 'Number of Documents'
+                              }
+                          },
+                          x: {
+                              title: {
+                                  display: true,
+                                  text: 'Clusters'
+                              }
+                          }
+                      },
+                      plugins: {
+                          legend: {
+                              display: false
+                          },
+                          tooltip: {
+                              callbacks: {
+                                  label: function(context) {
+                                      return context.parsed.y + ' documents';
+                                  }
+                              }
+                          }
+                      }
+                  }
+              });
+          {% endif %}
+
+          {% if comparison_plot %}
+              // Create comparison chart
+              const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+              const comparisonChart = new Chart(comparisonCtx, {
+                  type: 'bar',
+                  data: {
+                      labels: [{% for alg in comparison_results.keys() %}'{{ alg|upper }}'{% if not loop.last %},{% endif %}{% endfor %}],
+                      datasets: [
+                          {
+                              label: 'Silhouette Score',
+                              data: [{% for data in comparison_results.values() %}{{ data.silhouette }}{% if not loop.last %},{% endif %}{% endfor %}],
+                              backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                              borderColor: 'rgba(16, 185, 129, 1)',
+                              borderWidth: 1
+                          },
+                          {
+                              label: 'Calinski-Harabasz Score',
+                              data: [{% for data in comparison_results.values() %}{{ data.calinski_harabasz }}{% if not loop.last %},{% endif %}{% endfor %}],
+                              backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                              borderColor: 'rgba(59, 130, 246, 1)',
+                              borderWidth: 1
+                          }
+                      ]
+                  },
+                  options: {
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      animation: {
+                          duration: 1500,
+                          easing: 'easeOutQuart'
+                      },
+                      scales: {
+                          y: {
+                              beginAtZero: true,
+                              title: {
+                                  display: true,
+                                  text: 'Score Value'
+                              }
+                          }
+                      },
+                      plugins: {
+                          tooltip: {
+                              callbacks: {
+                                  label: function(context) {
+                                      return context.dataset.label + ': ' + context.parsed.y.toFixed(3);
+                                  }
+                              }
+                          }
+                      }
+                  }
+              });
+          {% endif %}
+      });
+  </script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحديد الأعمدة والعتبة</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; margin: 20px; line-height: 1.6; background-color: #f4f4f4; color: #333; }
+        .container { max-width: 800px; margin: 40px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #0056b3; text-align: center; margin-bottom: 20px; }
+         h2 { margin-top: 30px; color: #007bff;}
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .form-section { margin-top: 30px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #f9f9f9; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        input[type="text"] {
+            display: block;
+            width: calc(100% - 24px); /* Adjust for padding and border */
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        small { display: block; margin-top: 5px; color: #777; font-size: 0.9rem; }
+         button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: background-color 0.3s ease;
+            text-align: center;
+            margin-top: 20px;
+        }
+        button:hover { background-color: #218838; }
+        .error { color: red; margin-bottom: 15px; padding: 10px; border: 1px solid red; background-color: #ffe6e6; border-radius: 4px; }
+         .headers-list { margin-top: 10px; font-weight: bold; }
+         .headers-list span { font-weight: normal; margin-left: 10px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>تحديد الأعمدة والعتبة</h1>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+         <h2>رؤوس الأعمدة في ملفك:</h2>
+         {% if headers %}
+             <p class="headers-list">{% for header in headers %}<span>{{ header }}</span>{% endfor %}</p>
+         {% else %}
+             <p>تعذر قراءة رؤوس الأعمدة.</p>
+         {% endif %}
+
+
+        <h2>أول 20 صفاً من الملف:</h2>
+        {% if dataframe %}
+             {{ dataframe | safe }} {# Render the HTML table safely #}
+        {% else %}
+             <p>تعذر عرض بيانات الملف.</p>
+        {% endif %}
+
+
+        <div class="form-section">
+            <form action="{{ url_for('process_configuration') }}" method="post">
+                <div class="form-group">
+                    <label for="threshold_column">اسم عمود التصفية (العتبة):</label>
+                    <input type="text" name="threshold_column" id="threshold_column" required placeholder="مثال: category, status, قيمة_العمود">
+                    <small>سيتم تصفية الصفوف بناءً على هذا العمود والقيمة أدناه.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="threshold_value">قيمة التصفية (العتبة):</label>
+                    <input type="text" name="threshold_value" id="threshold_value" required placeholder="مثال: 'نشط', 'الفئة أ', '100'">
+                     <small>فقط الصفوف التي تطابق فيها القيمة في عمود التصفية القيمة المدخلة هنا تماماً سيتم تضمينها في التحليل لجميع المجالات.</small>
+                </div>
+
+                <h2>أسماء أعمدة النص للمجالات الخمسة:</h2>
+                <p><small>أدخل الأسماء الدقيقة للأعمدة الخمسة في ملف CSV التي تحتوي على البيانات النصية لكل مجال.</small></p>
+
+                {% for i in range(1, 6) %}
+                    <div class="form-group">
+                        <label for="domain_{{ i }}_column">اسم عمود النص للمجال {{ i }}:</label>
+                        <input type="text" name="domain_{{ i }}_column" id="domain_{{ i }}_column" required placeholder="مثال: وصف_المجال1, حقل_نص_أ, مراجعة_{{ i }}">
+                    </div>
+                {% endfor %}
+
+                <button type="submit">تأكيد الأعمدة والعتبة وعرض المجالات</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
