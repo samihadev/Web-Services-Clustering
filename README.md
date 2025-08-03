@@ -80,6 +80,12 @@ Computer Network Engineering & Telecommunications
 GitHub • LinkedIn
 Email: samihasmail33@gmail.com
 
+## 📄 Final Report
+
+You can download the full project report here:
+
+[📥 Download Samiha_Memoire (25).pdf](./Samiha_Memoire%20(25).pdf)
+
 
 
 
